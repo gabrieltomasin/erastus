@@ -35,11 +35,6 @@ def is_zip_file(file_path: Path) -> bool:
     return file_path.suffix.lower() == ".zip"
 
 
-def is_audio_file(file_path: Path) -> bool:
-    """Check if the given file is a supported audio format."""
-    return file_path.suffix.lower() in SUPPORTED_AUDIO_FORMATS
-
-
 def main(
     input_path: str,
     model_size: str | None = None,
@@ -79,7 +74,7 @@ def main(
                 supported = ", ".join(SUPPORTED_AUDIO_FORMATS)
                 logger.error(f"No supported audio files found in the zip! Supported formats: {supported}")
                 return
-        elif is_audio_file(input_file):
+        elif file_handler.is_supported_audio_file(input_file):
             logger.info(f"Processing single audio file: {input_path}")
             audio_files = file_handler.get_single_audio_file(input_path)
         else:

@@ -50,9 +50,13 @@ class FileHandler:
             A list containing the path to the copied audio file.
             
         Raises:
+            FileNotFoundError: If the source file does not exist.
             ValueError: If the file format is not supported.
         """
         audio_path = Path(audio_path)
+        
+        if not audio_path.exists():
+            raise FileNotFoundError(f"Audio file not found: {audio_path}")
         
         if not self.is_supported_audio_file(audio_path):
             supported = ", ".join(SUPPORTED_AUDIO_FORMATS)
@@ -62,7 +66,16 @@ class FileHandler:
             )
         
         # Copy to audio directory for consistent processing
+        # Generate unique filename if destination already exists
         dest_path = self.audio_dir / audio_path.name
+        if dest_path.exists():
+            stem = audio_path.stem
+            suffix = audio_path.suffix
+            counter = 1
+            while dest_path.exists():
+                dest_path = self.audio_dir / f"{stem}_{counter}{suffix}"
+                counter += 1
+        
         shutil.copy2(audio_path, dest_path)
         logger.info(f"Copied audio file: {audio_path.name}")
         
@@ -84,8 +97,6 @@ class FileHandler:
         """
         if extensions is None:
             extensions = SUPPORTED_AUDIO_FORMATS
-            
-        audio_files = []
         
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
             # List all files inside the zip
