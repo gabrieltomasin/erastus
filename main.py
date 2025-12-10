@@ -31,7 +31,7 @@ from faster_whisper.transcribe import TranscriptionInfo, Segment
 
 
 def is_zip_file(file_path: Path) -> bool:
-    """Check if the given file is a ZIP archive."""
+    """Quick check for ZIP files."""
     return file_path.suffix.lower() == ".zip"
 
 
@@ -43,11 +43,7 @@ def main(
     batch_size: int = 16,
     output_dir: Path | None = None,
 ):
-    """Main processing function.
-
-    Accepts either a ZIP file containing audio files or a single audio file.
-    Parameters can override values from `config.py` (model, device, language, etc.).
-    """
+    """Main processing - handles ZIP archives or single audio files."""
     
     input_file = Path(input_path)
     
