@@ -19,6 +19,7 @@ from config import (
     WHISPER_MODEL,
     USE_CUDA,
     LANGUAGE,
+    SUPPORTED_AUDIO_FORMATS,
     detect_cuda,
 )
 from src.file_handler import FileHandler
@@ -28,26 +29,31 @@ from src.summarizer import DeepSeekSummarizer
 
 from faster_whisper.transcribe import TranscriptionInfo, Segment
 
+
+def is_zip_file(file_path: Path) -> bool:
+    """Quick check for ZIP files."""
+    return file_path.suffix.lower() == ".zip"
+
+
 def main(
-    zip_path: str,
+    input_path: str,
     model_size: str | None = None,
     use_cuda: bool | None = None,
     language: str | None = None,
     batch_size: int = 16,
     output_dir: Path | None = None,
 ):
-    """Main processing function.
-
-    Parameters can override values from `config.py` (model, device, language, etc.).
-    """
+    """Main processing - handles ZIP archives or single audio files."""
     
-    # 1. Inicializa componentes
+    input_file = Path(input_path)
+    
+    # 1. Initialize components
     file_handler = FileHandler(UPLOAD_DIR, AUDIO_DIR)
     effective_model = model_size or WHISPER_MODEL
     effective_use_cuda = USE_CUDA if use_cuda is None else use_cuda
     transcriber = Transcriber(model_size=effective_model, use_cuda=effective_use_cuda)
     
-    # Verifica API key
+    # Verify API key
     if not DEEPSEEK_API_KEY:
         logger.error("DEEPSEEK_API_KEY not found!")
         return
@@ -55,15 +61,27 @@ def main(
     summarizer = DeepSeekSummarizer(DEEPSEEK_API_KEY, DEEPSEEK_API_URL)
     
     try:
-        # 2. Extract audio files
-        logger.info(f"Extracting audio files from: {zip_path}")
-        audio_files = file_handler.extract_audio_files(zip_path)
-        
-        if not audio_files:
-            logger.error("No .flac audio files found in the zip!")
+        # 2. Get audio files (from ZIP or single file)
+        if is_zip_file(input_file):
+            logger.info(f"Extracting audio files from: {input_path}")
+            audio_files = file_handler.extract_audio_files(input_path)
+            
+            if not audio_files:
+                supported = ", ".join(SUPPORTED_AUDIO_FORMATS)
+                logger.error(f"No supported audio files found in the zip! Supported formats: {supported}")
+                return
+        elif file_handler.is_supported_audio_file(input_file):
+            logger.info(f"Processing single audio file: {input_path}")
+            audio_files = file_handler.get_single_audio_file(input_path)
+        else:
+            supported = ", ".join(SUPPORTED_AUDIO_FORMATS)
+            logger.error(
+                f"Unsupported file type: {input_file.suffix}. "
+                f"Please provide a .zip archive or a single audio file ({supported})"
+            )
             return
         
-        logger.info(f"Found {len(audio_files)} audio files")
+        logger.info(f"Found {len(audio_files)} audio file(s)")
         
         # 3. Transcribe audio files
         logger.info("Starting transcription...")
@@ -79,7 +97,7 @@ def main(
         
         # Save full transcription
         effective_output_dir = output_dir or OUTPUT_DIR
-        output_file = effective_output_dir / f"transcription_full_{Path(zip_path).stem}.txt"
+        output_file = effective_output_dir / f"transcription_full_{Path(input_path).stem}.txt"
         with open(output_file, 'w', encoding='utf-8') as f:
             f.write(aggregated)
         
@@ -90,7 +108,7 @@ def main(
         summary = summarizer.summarize(aggregated)
         
         # Save summary
-        summary_file = effective_output_dir / f"session_summary_{Path(zip_path).stem}.txt"
+        summary_file = effective_output_dir / f"session_summary_{Path(input_path).stem}.txt"
         with open(summary_file, 'w', encoding='utf-8') as f:
             f.write(summary)
         
@@ -101,8 +119,8 @@ def main(
         print(summary)
         
     except FileNotFoundError:
-        logger.error(f"File not found: {zip_path}")
-        print(f"Error: The file '{zip_path}' was not found!")
+        logger.error(f"File not found: {input_path}")
+        print(f"Error: The file '{input_path}' was not found!")
     except Exception as e:
         logger.error(f"Error during processing: {str(e)}", exc_info=True)
     
@@ -114,12 +132,14 @@ def main(
 if __name__ == "__main__":
     # Configure argument parser
     parser = argparse.ArgumentParser(
-        description='Receives a .zip containing .flac audio files from a TTRPG session and generates a detailed summary using DeepSeek API.'
+        description='Transcribe and summarize audio from TTRPG sessions using DeepSeek API. '
+                    'Accepts either a .zip containing audio files or a single audio file.'
     )
     parser.add_argument(
-        'zip_file',
+        'input_file',
         type=str,
-        help='Path to the ZIP file containing audio files (ex: craig.zip or full/path/craig.zip)'
+        help='Path to a ZIP file containing audio files or a single audio file. '
+             f'Supported audio formats: {", ".join(SUPPORTED_AUDIO_FORMATS)}'
     )
     parser.add_argument('--model', type=str, default=None, help='Whisper model to use (overrides config)')
     parser.add_argument('--use-cuda', type=str, choices=['auto', 'true', 'false'], default=None,
@@ -154,15 +174,17 @@ if __name__ == "__main__":
         dir_path.mkdir(parents=True, exist_ok=True)
     
     # Ensure the input file exists
-    zip_path = Path(args.zip_file)
-    if not zip_path.exists():
-        print(f"Error: The file '{args.zip_file}' does not exist!")
-        print("Usage: python main.py path/to/file.zip")
+    input_path = Path(args.input_file)
+    if not input_path.exists():
+        print(f"Error: The file '{args.input_file}' does not exist!")
+        supported = ", ".join(SUPPORTED_AUDIO_FORMATS)
+        print(f"Usage: python main.py path/to/file.zip or path/to/audio.mp3")
+        print(f"Supported audio formats: {supported}")
         exit(1)
     
     # Call the main function with the effective configuration
     main(
-        str(zip_path),
+        str(input_path),
         model_size=model_size,
         use_cuda=use_cuda,
         language=language,

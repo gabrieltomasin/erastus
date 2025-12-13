@@ -3,6 +3,8 @@ import shutil
 from pathlib import Path
 import logging
 
+from config import SUPPORTED_AUDIO_FORMATS
+
 logger = logging.getLogger(__name__)
 
 class FileHandler:
@@ -12,39 +14,54 @@ class FileHandler:
         self.audio_dir.mkdir(parents=True, exist_ok=True)
     
     def save_uploaded_file(self, file_bytes, filename):
-        """Save an uploaded file to the upload directory.
-
-        Args:
-            file_bytes: Raw file bytes to write.
-            filename: Target file name.
-
-        Returns: Path to the saved file.
-        """
+        """Save uploaded file to the upload directory."""
         file_path = self.upload_dir / filename
         with open(file_path, 'wb') as f:
             f.write(file_bytes)
         return file_path
     
-    def extract_audio_files(self, zip_path, target_ext=".flac"):
-        """Extract only audio files from a ZIP archive.
-
-        This will scan the provided ZIP and extract files ending with the
-        `target_ext` into the configured audio directory.
-
-        Returns a list of extracted paths (Path objects).
-        """
-        audio_files = []
+    def is_supported_audio_file(self, file_path: Path) -> bool:
+        """Check if file has a supported audio extension."""
+        return file_path.suffix.lower() in SUPPORTED_AUDIO_FORMATS
+    
+    def get_single_audio_file(self, audio_path: str | Path) -> list[Path]:
+        """Copy a single audio file to the processing directory."""
+        audio_path = Path(audio_path)
         
-        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-            # List all files inside the zip
-            file_list = zip_ref.namelist()
+        if not audio_path.exists():
+            raise FileNotFoundError(f"Audio file not found: {audio_path}")
+        
+        if not self.is_supported_audio_file(audio_path):
+            supported = ", ".join(SUPPORTED_AUDIO_FORMATS)
+            raise ValueError(f"Unsupported format: {audio_path.suffix}. Try: {supported}")
+        
+        # Copy to audio dir, handle name collisions
+        dest_path = self.audio_dir / audio_path.name
+        if dest_path.exists():
+            stem, suffix = audio_path.stem, audio_path.suffix
+            counter = 1
+            while dest_path.exists():
+                dest_path = self.audio_dir / f"{stem}_{counter}{suffix}"
+                counter += 1
+        
+        shutil.copy2(audio_path, dest_path)
+        logger.info(f"Copied: {audio_path.name}")
+        
+        return [dest_path]
+    
+    def extract_audio_files(self, zip_path, extensions=None):
+        """Extract audio files from a ZIP archive."""
+        if extensions is None:
+            extensions = SUPPORTED_AUDIO_FORMATS
+        
+        with zipfile.ZipFile(zip_path, 'r') as zf:
+            audio_files = [
+                f for f in zf.namelist() 
+                if any(f.lower().endswith(ext) for ext in extensions)
+            ]
             
-            # Filter only audio files
-            audio_files = [f for f in file_list if f.lower().endswith(target_ext)]
-            
-            # Extract the audio files
             for audio_file in audio_files:
-                zip_ref.extract(audio_file, self.audio_dir)
+                zf.extract(audio_file, self.audio_dir)
                 logger.info(f"Extracted: {audio_file}")
         
         return [self.audio_dir / f for f in audio_files]

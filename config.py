@@ -66,6 +66,9 @@ LANGUAGE = os.getenv("LANGUAGE", None)
 def detect_cuda() -> bool:
 	return _detect_cuda_via_runtime()
 
+# Supported audio file formats
+SUPPORTED_AUDIO_FORMATS = (".mp3", ".wav", ".flac", ".m4a", ".ogg", ".aac")
+
 # DeepSeek API
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions"

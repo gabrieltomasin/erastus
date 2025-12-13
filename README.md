@@ -5,7 +5,8 @@ Erastus is a small toolkit for extracting, transcribing and summarizing recorded
 This repository contains utilities around faster-whisper for audio transcription and a small wrapper to call an external summarization API (DeepSeek). The project is intentionally minimal and meant to be published as a Python library later.
 
 Key features
-- Extract audio files from a ZIP (Craig-style exports)
+- Extract audio files from a ZIP (Craig-style exports) or process single audio files
+- Support for multiple audio formats: MP3, WAV, FLAC, M4A, OGG, AAC
 - Transcribe audio using faster-whisper / Whisper models
 - Process and merge multi-track transcriptions into a single time-ordered transcript
 - Produce a session summary by calling a chat-based summarizer API
@@ -39,10 +40,18 @@ pip install -r requirements.txt
 Usage
 -----
 
-The repository currently has a command-line entry point implemented at `main.py`. It expects a ZIP file containing `.flac` audio recordings (Craig Discord export). Example:
+The repository currently has a command-line entry point implemented at `main.py`. It accepts either a ZIP file containing audio recordings (e.g., Craig Discord export) or a single audio file. Supported audio formats: **MP3, WAV, FLAC, M4A, OGG, AAC**.
+
+Example with a ZIP file:
 
 ```bash
 python main.py path/to/craig.zip
+```
+
+Example with a single audio file:
+
+```bash
+python main.py path/to/session.mp3
 ```
 
 The CLI supports several runtime overrides. Common options:
@@ -56,12 +65,12 @@ The CLI supports several runtime overrides. Common options:
 Example with overrides:
 
 ```bash
-python main.py path/to/craig.zip --model large-v3-turbo --use-cuda auto --batch-size 16 --output-dir outputs/
+python main.py path/to/session.wav --model large-v3-turbo --use-cuda auto --batch-size 16 --output-dir outputs/
 ```
 
 The script will:
 
-1. Extract .flac tracks from the ZIP
+1. Extract audio tracks from the ZIP (or use the single audio file directly)
 2. Transcribe each audio track
 3. Merge segments into a single time-ordered transcript
 4. Send the full transcript to a summarizer API and save the result
