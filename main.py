@@ -22,10 +22,10 @@ from config import (
     SUPPORTED_AUDIO_FORMATS,
     detect_cuda,
 )
-from src.file_handler import FileHandler
-from src.transcriber import Transcriber
-from src.transcription_processor import TranscriptionProcessor
-from src.summarizer import DeepSeekSummarizer
+from src.erastus.file_handler import FileHandler
+from src.erastus.transcriber import Transcriber
+from src.erastus.transcription_processor import TranscriptionProcessor
+from src.erastus.summarizer import DeepSeekSummarizer
 
 from faster_whisper.transcribe import TranscriptionInfo, Segment
 
